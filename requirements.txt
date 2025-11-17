@@ -1,0 +1,15 @@
+diffusers[torch]
+transformers
+accelerate
+safetensors
+bitsandbytes
+gradio
+ftfy
+einops
+datasets
+lpips
+tokenizers
+huggingface_hub
+git+https://github.com/openai/CLIP.git
+omegaconf
+wandb
