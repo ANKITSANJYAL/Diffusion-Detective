@@ -5,10 +5,12 @@ Main API server for interpretable Stable Diffusion generation.
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Optional, List
 import torch
 import os
+import json
 from dotenv import load_dotenv
 
 from .pipeline import InterpretableSDPipeline
@@ -42,7 +44,7 @@ narrator: Optional[NarratorService] = None
 # ==================== Request/Response Models ====================
 
 class GenerationRequest(BaseModel):
-    """Request model for image generation."""
+    """Request model for image generation (v2.0 with semantic steering)."""
     
     prompt: str = Field(..., description="Text prompt for image generation")
     num_inference_steps: int = Field(
@@ -82,6 +84,20 @@ class GenerationRequest(BaseModel):
     seed: Optional[int] = Field(
         default=None,
         description="Random seed for reproducibility"
+    )
+    
+    # v2.0: Semantic intervention parameters
+    target_concept: Optional[str] = Field(
+        default=None,
+        description="Target concept to modify (e.g., 'tiger', 'mountain')"
+    )
+    injection_attribute: Optional[str] = Field(
+        default=None,
+        description="Attribute to inject (e.g., 'blue', 'neon', 'robot')"
+    )
+    auto_detect_concepts: bool = Field(
+        default=True,
+        description="Auto-detect and track key concepts from prompt"
     )
 
 
@@ -207,35 +223,25 @@ async def reset_pipeline_endpoint():
     return {"status": "success", "message": "Pipeline reset. Will reload on next generation."}
 
 
-@app.post("/generate", response_model=GenerationResponse, tags=["Generation"])
-async def generate_image(request: GenerationRequest):
+@app.post("/generate_simple", response_model=GenerationResponse, tags=["Generation"])
+async def generate_image_simple(request: GenerationRequest):
     """
-    Generate images with optional latent steering intervention.
-    
-    This endpoint runs the full diffusion process twice:
-    1. Natural generation (baseline)
-    2. Controlled generation (with intervention if enabled)
-    
-    Returns both images with reasoning logs and narrative.
+    Generate images without streaming (backward compatibility).
+    Returns complete result after generation finishes.
     """
-    
     try:
-        # Initialize pipeline and narrator
         pipe = get_pipeline()
         narr = get_narrator()
         
-        # Validate intervention range
         if request.intervention_active and request.intervention_step_start < request.intervention_step_end:
             raise HTTPException(
                 status_code=400,
                 detail="intervention_step_start must be >= intervention_step_end"
             )
         
-        # Progress tracking (optional - could be used for websocket updates)
         def progress_callback(step: int, log: str):
             print(f"[Step {step}] {log}")
         
-        # Generate images
         natural_image, controlled_image, reasoning_logs, metadata = pipe.generate(
             prompt=request.prompt,
             num_inference_steps=request.num_inference_steps,
@@ -245,14 +251,62 @@ async def generate_image(request: GenerationRequest):
             intervention_step_start=request.intervention_step_start,
             intervention_step_end=request.intervention_step_end,
             seed=request.seed,
-            callback=progress_callback
+            callback=progress_callback,
+            target_concept=request.target_concept,
+            injection_attribute=request.injection_attribute,
+            auto_detect_concepts=request.auto_detect_concepts
         )
         
-        # Convert images to base64
         image_baseline_b64 = pil_to_base64(natural_image, format="PNG")
         image_intervened_b64 = pil_to_base64(controlled_image, format="PNG")
         
-        # Format logs for narrative (convert structured logs to readable text)
+        # 🧠 GENERATE LLM-POWERED STEP-BY-STEP REASONING
+        # Get high-fidelity data packet from attention store
+        high_fidelity_data = pipe.attention_store.high_fidelity_data
+        
+        # Prepare intervention info for LLM
+        intervention_info = None
+        if request.intervention_active and request.target_concept and request.injection_attribute:
+            intervention_info = {
+                'target': request.target_concept,
+                'attribute': request.injection_attribute,
+                'step_start': request.intervention_step_start,
+                'step_end': request.intervention_step_end,
+                'strength': request.intervention_strength
+            }
+        
+        # Generate intelligent step-by-step reasoning (now returns grouped structure)
+        llm_step_logs = narr.generate_step_by_step_reasoning(
+            prompt=request.prompt,
+            data_packet=high_fidelity_data,
+            intervention_info=intervention_info
+        )
+        
+        # LLM now returns dicts with range, type, message, stats
+        # Pass them directly to frontend with llm_generated flag
+        llm_reasoning_logs = []
+        for log_entry in llm_step_logs:
+            if isinstance(log_entry, dict):
+                llm_reasoning_logs.append({
+                    'range': log_entry.get('range', 'Unknown'),
+                    'type': log_entry.get('type', 'normal'),
+                    'message': log_entry.get('message', ''),
+                    'stats': log_entry.get('stats', {}),
+                    'intervention_active': request.intervention_active,
+                    'llm_generated': True
+                })
+            else:
+                # Fallback for old string format
+                llm_reasoning_logs.append({
+                    'range': 'Unknown',
+                    'type': 'normal',
+                    'message': str(log_entry),
+                    'stats': {},
+                    'intervention_active': request.intervention_active,
+                    'llm_generated': True
+                })
+        
+        # Generate narrative (still uses old narrative generator)
         formatted_logs = []
         for log in reasoning_logs:
             if isinstance(log, dict):
@@ -260,7 +314,6 @@ async def generate_image(request: GenerationRequest):
             else:
                 formatted_logs.append(str(log))
         
-        # Generate narrative with clean logs
         narrative_text = narr.generate_narrative(
             prompt=request.prompt,
             reasoning_logs=formatted_logs,
@@ -272,21 +325,145 @@ async def generate_image(request: GenerationRequest):
             success=True,
             image_baseline=image_baseline_b64,
             image_intervened=image_intervened_b64,
-            reasoning_logs=reasoning_logs,  # Send structured logs
+            reasoning_logs=llm_reasoning_logs,  # Use LLM-generated logs instead
             narrative_text=narrative_text,
             metadata=metadata
         )
     
     except torch.cuda.OutOfMemoryError:
-        raise HTTPException(
-            status_code=503,
-            detail="GPU out of memory. Try reducing num_inference_steps or contact administrator."
-        )
+        raise HTTPException(status_code=503, detail="GPU out of memory")
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Generation failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
+
+
+@app.post("/generate", tags=["Generation"])
+async def generate_image_stream(request: GenerationRequest):
+    """
+    Generate images with Server-Sent Events (SSE) streaming for real-time progress.
+    
+    This endpoint streams progress updates during:
+    1. Denoising steps (0-100%)
+    2. Decoding phase (98%)
+    3. Narrative generation (99%)
+    4. Final result (100%)
+    
+    Returns a stream of JSON objects with progress updates and final result.
+    """
+    
+    async def event_generator():
+        try:
+            # Initialize pipeline and narrator
+            pipe = get_pipeline()
+            narr = get_narrator()
+            
+            # Validate intervention range
+            if request.intervention_active and request.intervention_step_start < request.intervention_step_end:
+                yield f"data: {json.dumps({'error': 'intervention_step_start must be >= intervention_step_end'})}\n\n"
+                return
+            
+            # Progress tracking with streaming
+            def progress_callback(step: int, log):
+                if isinstance(log, dict):
+                    # Post-processing status (step = -1)
+                    status_update = {
+                        "type": "status",
+                        "status": log.get("status", "processing"),
+                        "message": log.get("message", "Processing..."),
+                        "progress": log.get("progress", 0)
+                    }
+                else:
+                    # Regular step progress
+                    status_update = {
+                        "type": "progress",
+                        "step": step,
+                        "message": str(log),
+                        "progress": int((step / request.num_inference_steps) * 97)  # 0-97%
+                    }
+                
+                # This will be picked up by the async generator
+                return status_update
+            
+            # Store progress updates
+            progress_queue = []
+            
+            def callback_with_queue(step, log):
+                update = progress_callback(step, log)
+                progress_queue.append(update)
+            
+            # Start generation
+            yield f"data: {json.dumps({'type': 'start', 'message': 'Starting generation...'})}\n\n"
+            
+            # Generate images (v2.0 with semantic steering)
+            natural_image, controlled_image, reasoning_logs, metadata = pipe.generate(
+                prompt=request.prompt,
+                num_inference_steps=request.num_inference_steps,
+                guidance_scale=request.guidance_scale,
+                intervention_active=request.intervention_active,
+                intervention_strength=request.intervention_strength,
+                intervention_step_start=request.intervention_step_start,
+                intervention_step_end=request.intervention_step_end,
+                seed=request.seed,
+                callback=callback_with_queue,
+                # v2.0 parameters
+                target_concept=request.target_concept,
+                injection_attribute=request.injection_attribute,
+                auto_detect_concepts=request.auto_detect_concepts
+            )
+            
+            # Send any queued progress updates
+            for update in progress_queue:
+                yield f"data: {json.dumps(update)}\n\n"
+            
+            # Narrative generation phase
+            yield f"data: {json.dumps({'type': 'status', 'status': 'analyzing', 'message': '🕵️ Consulting Forensic Narrator...', 'progress': 99})}\n\n"
+            
+            # Convert images to base64
+            image_baseline_b64 = pil_to_base64(natural_image, format="PNG")
+            image_intervened_b64 = pil_to_base64(controlled_image, format="PNG")
+            
+            # Format logs for narrative (convert structured logs to readable text)
+            formatted_logs = []
+            for log in reasoning_logs:
+                if isinstance(log, dict):
+                    formatted_logs.append(f"Step {log['step']} ({log['phase']}): {log['message']}")
+                else:
+                    formatted_logs.append(str(log))
+            
+            # Generate narrative with clean logs
+            narrative_text = narr.generate_narrative(
+                prompt=request.prompt,
+                reasoning_logs=formatted_logs,
+                intervention_active=request.intervention_active,
+                intervention_strength=request.intervention_strength
+            )
+            
+            # Send final result
+            final_response = {
+                "type": "complete",
+                "success": True,
+                "image_baseline": image_baseline_b64,
+                "image_intervened": image_intervened_b64,
+                "reasoning_logs": reasoning_logs,
+                "narrative_text": narrative_text,
+                "metadata": metadata,
+                "progress": 100
+            }
+            
+            yield f"data: {json.dumps(final_response)}\n\n"
+        
+        except torch.cuda.OutOfMemoryError:
+            yield f"data: {json.dumps({'type': 'error', 'message': 'GPU out of memory. Try reducing num_inference_steps.'})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': f'Generation failed: {str(e)}'})}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
+    )
 
 
 @app.post("/cleanup", tags=["Maintenance"])
