@@ -208,7 +208,7 @@ VITE_API_URL=http://localhost:8000
 
 ### Metrics
 
-- **Total generation latency**: 6.7 seconds (M1 Pro MPS), 2.7 seconds (RTX 3090)
+- **Total generation latency**: 28 seconds (M4 Pro MPS), 2.7 seconds (RTX 3090)
 - **Attention extraction overhead**: 2.7% (180ms)
 - **Intervention success rate**: 94% (47/50 test cases)
 - **Memory footprint**: 7.2GB VRAM peak, 1.8GB post-cleanup
