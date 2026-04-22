@@ -207,19 +207,7 @@ cd frontend && npm install && npm run dev
 
 ## Citation
 
-If you use this code or findings, please cite:
 
-```bibtex
-@article{diffusiondetective2026,
-  title   = {When Does Attention Actually Do Anything?
-             A Large-Scale Diagnostic of Cross-Attention in
-             Text-to-Image Diffusion Models},
-  author  = {Anonymous},
-  journal = {Mechanistic Interpretability Workshop, ICML 2026},
-  year    = {2026},
-  url     = {https://anonymous.4open.science/r/diffusion-detective}
-}
-```
 
 ---
 
