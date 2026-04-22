@@ -1,0 +1,90 @@
+# experiments/configs/ablation.yaml
+# ============================================================================
+# UNIFIED ABLATION CONFIG
+# ============================================================================
+# One config to rule them all.  For each prompt, the runner builds a treatment
+# grid from the sweep axes below, runs the baseline ONCE, then executes every
+# treatment (strength × window × attribute) on that same baseline.
+#
+# This is the k-fold-style design: every sample sees every condition.
+#
+# Usage:
+#   torchrun --nproc_per_node=2 -m experiments.run_experiment --config-name=ablation
+#
+# To run with SD1.5 instead of SDXL:
+#   torchrun --nproc_per_node=2 -m experiments.run_experiment --config-name=ablation \
+#     pipeline.model_id=runwayml/stable-diffusion-v1-5
+# ============================================================================
+defaults:
+  - base
+
+data:
+  max_samples: 5000
+  categories:
+    - "Simple"
+    - "Compositional"
+    - "Conflicting"
+
+# ── SWEEP GRID ──────────────────────────────────────────────────
+# Every prompt gets one baseline, then one intervention per cell
+# in the cross-product of these axes.
+sweep:
+  # Axis 1: Injection strength
+  strengths: [0.25, 0.5, 0.75, 1.0, 1.5, 2.0]
+
+  # Axis 2: Timestep intervention window (step_start, step_end)
+  windows:
+    - [50, 35]   # early_layout   (composition phase)
+    - [35, 20]   # mid_detail     (attribute phase)
+    - [20,  5]   # late_refine    (detail phase)
+    - [45,  5]   # full_range     (entire denoising)
+
+  # Axis 3: Attribute modality
+  # "dataset" = use whatever attribute the dataset assigned (diverse pool).
+  # To also test per-modality, add explicit groups here.
+  # The runner will run the dataset's attribute PLUS any extras listed.
+  attribute_groups:
+    colour:     ["red", "blue", "golden"]
+    texture:    ["metallic", "glass", "stone"]
+    style:      ["cyberpunk", "baroque", "minimalist"]
+    atmosphere: ["frozen", "fiery", "misty"]
+
+  # Which axes to actually activate for this run.
+  # Set an axis to false to hold it at its default value.
+  sweep_strength: true
+  sweep_window:   true
+  sweep_attribute: false   # Default off — adds 12× multiplier.
+                           # Turn on for the attribute-diversity study.
+
+# ── DEFAULT HOLD-OUT VALUES ─────────────────────────────────────
+# When an axis is NOT being swept, use these fixed values.
+intervention:
+  active: true
+  strength: 1.0
+  step_start: 40
+  step_end: 20
+
+# ── TREATMENTS PER PROMPT (with defaults above) ────────────────
+# sweep_strength ON  + sweep_window ON  + sweep_attribute OFF:
+#   6 strengths × 4 windows × 1 attribute = 24 treatments/prompt
+#   5,000 prompts × 24 = 120,000 intervention passes
+#   + 5,000 baselines = 125,000 total generations
+#
+# sweep_strength ON  + sweep_window ON  + sweep_attribute ON:
+#   6 × 4 × 12 = 288 treatments/prompt (very expensive)
+#
+# To do model ablation, run this config twice with different model_id.
+
+wandb:
+  mode: "online"
+  tags: ["cvpr", "unified-ablation"]
+
+evaluator:
+  use_vlm_judge: false   # Too expensive at scale
+
+storage:
+  save_images_locally: false
+  save_reproduction_params: true
+  save_individual_jsons: false
+
+experiment_name: "unified-ablation"

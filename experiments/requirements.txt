@@ -1,0 +1,13 @@
+torch
+torchvision
+diffusers
+transformers
+accelerate
+hydra-core
+omegaconf
+wandb
+datasets
+torchmetrics[image]
+openai
+tqdm
+Pillow

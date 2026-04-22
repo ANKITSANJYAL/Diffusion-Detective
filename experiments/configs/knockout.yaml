@@ -1,0 +1,43 @@
+# experiments/configs/knockout.yaml
+# Causal ablation experiment: Attention Knockout Score (AKS)
+#
+# Runs 3 passes per treatment: baseline → intervention → knockout
+# Expensive (50% more compute), so we use fewer prompts and conditions.
+#
+# Usage:
+#   python -m experiments.run_experiment --config-name=knockout
+
+defaults:
+  - base
+
+experiment_name: "knockout-ablation"
+
+data:
+  dataset_name: "coco2017"
+  max_samples: 200              # Subset for knockout (expensive)
+  batch_size: 1
+
+metrics:
+  calculate_delta_clip: true
+  calculate_lpips: true
+  calculate_attention_faithfulness: true
+  calculate_knockout: true       # ★ Enable AKS (3rd denoising pass)
+
+# Reduced sweep: focus on 3 strengths × 2 windows × no attribute sweep
+sweep:
+  sweep_strength: true
+  strengths: [0.5, 1.0, 2.0]
+
+  sweep_window: true
+  windows:
+    - [50, 35]   # Early
+    - [35, 20]   # Mid
+
+  sweep_attribute: false          # Use dataset-assigned attribute only
+
+storage:
+  save_images_locally: false
+  save_reproduction_params: true
+
+wandb:
+  mode: "offline"

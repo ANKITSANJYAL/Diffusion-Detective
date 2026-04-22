@@ -1,0 +1,49 @@
+# experiments/configs/full_experiment.yaml
+# Full SDXL Ablation — same grid as the original unified-ablation run
+# but now includes P-ADC, L-ADC, and SF-IoU-HR computation.
+#
+# Usage:
+#   torchrun --nproc_per_node=2 -m experiments.run_experiment --config-name=full_experiment
+
+defaults:
+  - base
+
+experiment_name: "unified-ablation-v2"
+
+data:
+  dataset_name: "coco2017"
+  max_samples: 5000    # Same as original run
+  batch_size: 4
+
+metrics:
+  calculate_delta_clip: true
+  calculate_lpips: true
+  calculate_attention_faithfulness: true
+  calculate_knockout: false       # Knockout is a separate experiment (Phase 3)
+  calculate_fid: false
+  calculate_is: false
+
+evaluator:
+  use_vlm_judge: false
+
+sweep:
+  sweep_strength: true
+  strengths: [0.25, 0.5, 0.75, 1.0, 1.5, 2.0]
+
+  sweep_window: true
+  windows:
+    - [50, 35]   # Early
+    - [35, 20]   # Mid
+    - [20, 5]    # Late
+    - [45, 5]    # Full
+
+  sweep_attribute: false   # Dataset-assigned attribute only
+
+storage:
+  save_images_locally: false
+  save_individual_jsons: false
+  save_reproduction_params: true
+
+wandb:
+  mode: "online"
+  tags: ["cvpr", "unified-ablation-v2", "new-metrics"]

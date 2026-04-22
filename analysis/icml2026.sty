@@ -1,0 +1,62 @@
+% ---------------------------------------------------------------
+% icml2026.sty  —  Minimal compilation stub
+% Replicates ICML two-column, 10pt, Times layout so the paper
+% compiles on any standard TeX Live installation.
+% Replace with the official ICML 2026 style for final submission.
+% ---------------------------------------------------------------
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{icml2026}[2026/01/01 ICML 2026 stub]
+
+\DeclareOption{accepted}{}
+\DeclareOption{submission}{}
+\ProcessOptions\relax
+
+% --- Core packages ---
+\RequirePackage[T1]{fontenc}
+\RequirePackage{times}
+\RequirePackage[
+  top=1in, bottom=1in,
+  left=0.75in, right=0.75in,
+  columnsep=0.2in
+]{geometry}
+\RequirePackage{natbib}
+\setlength{\bibsep}{2pt}
+\RequirePackage{titlesec}
+\RequirePackage{fancyhdr}
+
+% --- Two-column section/subsection spacing ---
+\titleformat{\section}
+  {\normalfont\large\bfseries\scshape}
+  {\thesection.}{0.5em}{}
+\titlespacing*{\section}{0pt}{6pt plus 2pt}{3pt}
+
+\titleformat{\subsection}
+  {\normalfont\normalsize\bfseries}
+  {\thesubsection.}{0.5em}{}
+\titlespacing*{\subsection}{0pt}{4pt plus 1pt}{2pt}
+
+% --- Running title ---
+\newcommand{\icmltitlerunning}[1]{%
+  \pagestyle{fancy}%
+  \fancyhf{}%
+  \fancyhead[C]{\small\textit{#1}}%
+  \fancyfoot[C]{\thepage}%
+}
+
+% --- Title + author macros (double-blind stubs) ---
+\newcommand{\icmltitle}[1]{\title{\Large\bfseries #1}}
+
+\newenvironment{icmlauthorlist}{}{}
+\newcommand{\icmlauthor}[2]{}
+\newcommand{\icmlaffiliation}[2]{}
+\newcommand{\icmlcorrespondingauthor}[2]{}
+
+% --- \twocolumn[ ... ] title block ---
+% \twocolumn is a standard LaTeX command; the argument is placed
+% as a full-width block above the two columns.  We redefine
+% \maketitle to do nothing extra (called implicitly via \begin{document}).
+
+% --- Bibliography style alias ---
+\newcommand{\bibliographystyleicml}[1]{}   % no-op; style set below
+
+\endinput

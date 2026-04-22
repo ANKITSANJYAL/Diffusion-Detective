@@ -1,158 +1,74 @@
 # Diffusion Detective
 
-**Interpretable Stable Diffusion with Attention Extraction and Latent Space Intervention**
+**When Does Attention Actually Do Anything?  
+A Large-Scale Diagnostic of Cross-Attention in Text-to-Image Diffusion Models**
 
-A research system for understanding and controlling diffusion-based image generation through zero-approximation attention tracking, semantic steering via CLIP embedding algebra, and natural language explanations powered by large language models.
-
----
-
-## Overview
-
-Diffusion Detective provides three core capabilities for diffusion model interpretability:
-
-1. **Zero-Approximation Attention Extraction**: Direct extraction of cross-attention probabilities at every denoising timestep with 100% accuracy (validated via probability sum = 1.0, MAE < 10⁻⁶).
-
-2. **Embedding Algebra for Semantic Steering**: Zero-training latent space intervention using CLIP embedding arithmetic, achieving 94% success rate across diverse test prompts.
-
-3. **LLM-Powered Natural Language Explanations**: Automatic generation of human-understandable narratives from raw attention data using GPT-4o-mini.
+> Submitted to the **Mechanistic Interpretability Workshop @ ICML 2026**  
+> Anonymous submission — double-blind review  
+> Paper: [`analysis/mechinterp_workshop_2026.pdf`](analysis/mechinterp_workshop_2026.pdf)
 
 ---
 
-## Architecture
+## Abstract
 
-### Backend Components
+Cross-attention maps in text-to-image diffusion models are routinely treated as explanations for how text tokens influence image generation.  We test this assumption directly.  Across **16,302 controlled embedding-space interventions** on 680 COCO prompts using Stable Diffusion XL (SDXL), we find that attention maps are poor spatial predictors of where interventions take effect (SF-IoU-HR ≈ 0.17), and that the standard Attention-Delta Correlation (ADC) metric is partially tautological by construction.  We introduce two decoupled metrics — **Predictive ADC (P-ADC)** and **Latent-Delta Correlation (L-ADC)** — that remove this circularity.
 
-**Custom Stable Diffusion Pipeline**
-- Extends HuggingFace's `StableDiffusionPipeline` with attention extraction hooks
-- Direct cross-attention probability capture during denoising process
-- Two-pass generation: baseline and intervention for comparative analysis
-
-**Semantic Steering Module**
-- CLIP-based embedding arithmetic: `embedding(attribute) - embedding(concept)`
-- Latent space intervention during denoising timesteps
-- Configurable intervention strength and temporal window
-
-**AI Narrator Service**
-- GPT-4o-mini integration for natural language explanation generation
-- Structured attention logs as input
-- Three-stage narrative: Setup, Comparison, Insight
-
-### Frontend Components
-
-**User Interface**
-- React 18 with Vite build system
-- Tailwind CSS for responsive design
-- Side-by-side image comparison
-- Real-time generation progress tracking
-- Attention visualization and narrative display
+The strongest finding is structural: *concrete-perceptual* attributes (color, material) concentrate target-concept attention roughly **3× more** than *abstract-stylistic* attributes (style, atmospheric effect), despite producing comparable image-level changes (LPIPS).  This asymmetry holds across all intervention strengths and temporal windows, pointing to a mechanistic difference in how SDXL's cross-attention processes these two attribute classes.
 
 ---
 
-## Installation
+## Key Results
 
-### Requirements
+| Metric | Value | Interpretation |
+|---|---|---|
+| SF-IoU-HR (overall) | **0.17** | Cross-attention overlaps changed pixels only 17% of the time |
+| P-ADC (all strengths) | **0.097 ± 0.60** | Statistically nonzero (*p* < 10⁻⁹⁰) but near-zero per-sample predictor |
+| ACS dose–response | ***r* = −0.218** | Monotonic with α, saturates at α ≥ 1.5 (Cohen's *d* = 1.12) |
+| Color ACS | **−0.306 ± 0.13** | Strong attention concentration |
+| Material ACS | **−0.349 ± 0.16** | Strongest attention concentration |
+| Style ACS | **−0.106 ± 0.18** | ~3× weaker than Color/Material |
+| Effect ACS | **−0.098 ± 0.19** | ~3× weaker than Color/Material |
+| LPIPS (Color vs Style) | **0.150 vs 0.138** | Comparable image change — asymmetry is not explained by output magnitude |
 
-- Python 3.10 or higher
-- Node.js 18 or higher  
-- CUDA-capable GPU with 8GB+ VRAM (recommended)
-- OpenAI API key (for narrative generation)
+**SF-IoU-HR by temporal window:**  
+Early (50–35): 0.156 · Mid (35–20): 0.170 · Late (20–5): 0.177 · Full (45–5): 0.177
 
-### Backend Setup
-
-```bash
-cd backend
-
-# Create and activate virtual environment
-python3 -m venv venv
-source venv/bin/activate  # macOS/Linux
-# venv\Scripts\activate    # Windows
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment variables
-cp .env.example .env
-# Edit .env and add your OPENAI_API_KEY
-
-# Start FastAPI server
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-API Documentation: `http://localhost:8000/docs`
-
-### Frontend Setup
-
-```bash
-cd frontend
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-```
-
-Application URL: `http://localhost:3000`
+**SF-IoU-HR by prompt category:**  
+Compositional: 0.165 · Conflicting: 0.178 · Simple: 0.187
 
 ---
 
-## API Reference
+## Method
 
-### Generate Endpoint
+### Experimental Setup
 
-```bash
-POST http://localhost:8000/generate
-Content-Type: application/json
+- **Model:** `stabilityai/stable-diffusion-xl-base-1.0` (SDXL), 50 DDIM steps, guidance 7.5, seed 42, float16, NVIDIA V100 16 GB
+- **Dataset:** 680 COCO 2017 captions across three prompt categories — *Simple* (50), *Compositional* (451), *Conflicting* (158)
+- **Attributes:** 20 attributes in four semantic clusters — Color (5), Material (5), Style (5), Effect (5)
+- **Conditions:** 6 intervention strengths × 4 temporal windows = **24 conditions per prompt × attribute pair**
+- **Total interventions:** **16,302**
 
-{
-  "prompt": "A majestic lion standing on a mountain peak at sunset",
-  "num_inference_steps": 50,
-  "guidance_scale": 7.5,
-  "intervention_active": true,
-  "intervention_strength": 1.0,
-  "intervention_step_start": 40,
-  "intervention_step_end": 20,
-  "seed": 42
-}
-```
+### Intervention Mechanism
 
-### Response Format
-
-```json
-{
-  "success": true,
-  "image_natural": "data:image/png;base64,...",
-  "image_controlled": "data:image/png;base64,...",
-  "reasoning_logs": [...],
-  "narrative_text": "...",
-  "metadata": {...}
-}
-```
-
----
-
-## Methodology
-
-### Attention Extraction
-
-Cross-attention probabilities are extracted directly from the UNet's transformer layers during each denoising step. The system hooks into the attention computation pipeline without approximation:
+Each intervention computes a CLIP embedding-arithmetic steering vector and injects it during denoising:
 
 ```python
-# During denoising step t
-attention_probs = softmax(Q @ K.T / sqrt(d_k))  # [H, W, num_tokens]
-# Stored for analysis and visualization
+delta = clip_encode(attribute) - clip_encode(concept)   # steering direction
+latent_t += alpha * delta                                # applied within window [t_start, t_end]
 ```
 
-### Semantic Steering
+No fine-tuning. Two-pass generation (baseline + intervention) per condition.
 
-Intervention uses CLIP embedding arithmetic to compute steering vectors:
+### Metrics
 
-```python
-steering_vector = clip_encode(attribute) - clip_encode(concept)
-latents_t = latents_t + steering_vector * strength  # Applied at timestep t
-```
-
-Optimal intervention occurs during mid-generation (steps 40-20) when semantic attributes are solidified but before fine details are committed.
+| Metric | Description |
+|---|---|
+| **ACS** | Attention Concentration Score — relative change in target-token attention mass |
+| **ADC** | Attention-Delta Correlation — *partially tautological* (both quantities from same forward pass) |
+| **P-ADC** *(ours)* | Predictive ADC — baseline-pass attention predicting intervention-induced change |
+| **L-ADC** *(ours)* | Latent-Delta Correlation — baseline attention vs. latent L2-divergence |
+| **SF-IoU / SF-IoU-HR** | DAAM-protocol IoU between attention heatmap and pixel-change mask (native / upsampled) |
+| **LPIPS** | Perceptual image distance between baseline and intervention outputs |
 
 ---
 
@@ -160,126 +76,168 @@ Optimal intervention occurs during mid-generation (steps 40-20) when semantic at
 
 ```
 Diffusion-Detective/
-├── backend/
-│   ├── app/
-│   │   ├── main.py              # FastAPI application
-│   │   ├── pipeline.py          # Custom SD pipeline
-│   │   ├── narrator.py          # AI narrative service
-│   │   └── utils.py             # Image utilities
+│
+├── analysis/                          # Paper and figure generation
+│   ├── mechinterp_workshop_2026.tex   # Main paper (LaTeX source)
+│   ├── mechinterp_workshop_2026_refs.bib
+│   ├── mechinterp_workshop_2026.pdf   # Compiled paper
+│   ├── icml2026.sty                   # ICML 2026 style stub
+│   ├── generate_paper_figures_v2.py   # Reproduces all figures from raw data
+│   ├── paper_figures_v2/              # Final figures (PDF + PNG) and CSV tables
+│   └── paper_qualitative/             # Qualitative example images
+│
+├── experiments/                       # Experiment runner and evaluation
+│   ├── run_experiment.py              # Main Hydra-based sweep runner (DDP)
+│   ├── reproduce.py                   # Single-run reproducer
+│   ├── validate_new_metrics.py        # Metric validation suite
 │   ├── requirements.txt
-│   └── .env.example
-├── frontend/
+│   ├── configs/                       # Hydra YAML configs
+│   │   ├── base.yaml
+│   │   ├── full_experiment.yaml       # Full 16 302-run config
+│   │   ├── strength_sweep.yaml
+│   │   ├── window_sweep.yaml
+│   │   └── ablation.yaml
 │   ├── src/
-│   │   ├── components/          # React components
-│   │   ├── App.jsx              # Main application
-│   │   └── index.css
-│   ├── package.json
-│   └── vite.config.js
-├── docs/
-│   ├── FINAL_PROJECT_REPORT.md  # Academic report
-│   └── PRESENTATION_SLIDES.md   # Presentation deck
+│   │   ├── engine/                    # SDXL pipeline + attention hooks
+│   │   ├── metrics/                   # ACS, ADC, P-ADC, L-ADC, SF-IoU
+│   │   ├── evaluator/                 # Per-run evaluation logic
+│   │   └── data/                      # COCO prompt loading
+│   └── results/                       # Raw JSONL outputs (git-ignored)
+│
+├── backend/                           # Interactive demo (FastAPI + React)
+│   ├── app/
+│   │   ├── main.py                    # FastAPI endpoints
+│   │   ├── pipeline.py                # Custom SDXL pipeline with hooks
+│   │   └── narrator.py                # GPT-4o-mini explanation service
+│   └── requirements.txt
+│
+├── frontend/                          # Demo UI
+│   ├── src/
+│   └── package.json
+│
+├── setup.sh                           # Environment setup script
+├── run_full_ablation.sh               # Launch full experiment sweep
 └── README.md
 ```
 
 ---
 
-## Configuration
+## Reproducing the Paper
 
-### Backend Environment Variables
+### 1. Environment
 
-```env
-OPENAI_API_KEY=your_openai_api_key_here
-MODEL_ID=stabilityai/stable-diffusion-2-1-base
-DEVICE=cuda
-TORCH_DTYPE=float16
-HOST=0.0.0.0
-PORT=8000
+```bash
+bash setup.sh          # creates .venv, installs experiments/requirements.txt
+source .venv/bin/activate
 ```
 
-### Frontend Environment Variables
+Or manually:
 
-```env
-VITE_API_URL=http://localhost:8000
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r experiments/requirements.txt
+```
+
+### 2. Run the Full Experiment
+
+```bash
+# Full 16 302-intervention sweep (requires ~360 GPU-hours on V100)
+bash run_full_ablation.sh
+
+# Quick smoke test (50 interventions, ~5 min)
+python experiments/run_experiment.py --config-name smoke_test
+```
+
+Results are written to `experiments/results/<run_name>/aggregated_metrics.jsonl`.
+
+### 3. Reproduce Figures and Tables
+
+```bash
+cd analysis
+python generate_paper_figures_v2.py \
+    --results ../experiments/results/unified-ablation-v2_2026-04-13_00-19-07/aggregated_metrics.jsonl \
+    --outdir paper_figures_v2/
+```
+
+Outputs: 11 PDF/PNG figures + 4 CSV tables in `analysis/paper_figures_v2/`.
+
+### 4. Compile the Paper
+
+```bash
+cd analysis
+pdflatex mechinterp_workshop_2026
+bibtex   mechinterp_workshop_2026
+pdflatex mechinterp_workshop_2026
+pdflatex mechinterp_workshop_2026
+# → mechinterp_workshop_2026.pdf
+```
+
+Requires a standard TeX Live installation (natbib, geometry, times, booktabs, subcaption, placeins — all in TeX Live 2022+).
+
+---
+
+## Interactive Demo (Optional)
+
+The `backend/` and `frontend/` directories contain a web demo for exploring interventions interactively.
+
+```bash
+# Backend
+cd backend && pip install -r requirements.txt
+cp .env.example .env   # add OPENAI_API_KEY if you want LLM narration
+uvicorn app.main:app --reload --port 8000
+
+# Frontend
+cd frontend && npm install && npm run dev
+# → http://localhost:3000
 ```
 
 ---
 
-## Performance
+## Dependencies
 
-### Metrics
+**Experiments** (`experiments/requirements.txt`)
+- Python ≥ 3.10, PyTorch ≥ 2.1, CUDA 11.8+
+- `diffusers`, `transformers`, `accelerate`, `hydra-core`
+- `torchmetrics`, `lpips`, `scipy`, `pandas`, `matplotlib`, `seaborn`
 
-- **Total generation latency**: 28 seconds (M4 Pro MPS), 2.7 seconds (RTX 3090)
-- **Attention extraction overhead**: 2.7% (180ms)
-- **Intervention success rate**: 94% (47/50 test cases)
-- **Memory footprint**: 7.2GB VRAM peak, 1.8GB post-cleanup
-- **Narrative generation**: 250ms average (GPT-4o-mini)
+**Demo backend** (`backend/requirements.txt`)
+- FastAPI, uvicorn, diffusers, transformers, openai
 
-### Optimization
-
-- Float16 precision for GPU inference
-- Attention slicing for memory efficiency
-- Automatic resource cleanup
-- Graceful out-of-memory handling
+**Demo frontend**
+- Node 18+, React 18, Vite, Tailwind CSS
 
 ---
 
-## Troubleshooting
+## Citation
 
-### GPU Out of Memory
+If you use this code or findings, please cite:
 
-Reduce `num_inference_steps` to 30 or restart and call the `/cleanup` endpoint.
-
-### Slow First Generation
-
-Initial run downloads models (~4GB). Subsequent runs complete in 30-60 seconds on modern GPUs.
-
-### Missing Narratives
-
-Verify `OPENAI_API_KEY` in `.env`. System falls back to rule-based narratives if API fails.
-
----
-
-## Documentation
-
-- **Academic Report**: See `docs/FINAL_PROJECT_REPORT.md` for comprehensive technical documentation
-- **API Documentation**: Available at `http://localhost:8000/docs` when server is running
-- **Presentation**: See `docs/PRESENTATION_SLIDES.md` for project overview
-
----
-
-## Technical Stack
-
-**Backend**
-- Python 3.13
-- PyTorch 2.9.1  
-- FastAPI 0.115.0
-- Diffusers 0.30.0
-- Transformers 4.45.0
-
-**Frontend**
-- React 18.2.0
-- Vite 5.0.0
-- Tailwind CSS 3.4.0
-- Framer Motion 10.16.0
-
-**AI Models**
-- Stable Diffusion 2.1 Base
-- CLIP (OpenAI)
-- GPT-4o-mini (OpenAI)
+```bibtex
+@article{diffusiondetective2026,
+  title   = {When Does Attention Actually Do Anything?
+             A Large-Scale Diagnostic of Cross-Attention in
+             Text-to-Image Diffusion Models},
+  author  = {Anonymous},
+  journal = {Mechanistic Interpretability Workshop, ICML 2026},
+  year    = {2026},
+  url     = {https://anonymous.4open.science/r/diffusion-detective}
+}
+```
 
 ---
 
 ## License
 
-MIT License - See LICENSE file for details.
+MIT License — see [`LICENSE`](LICENSE) for details.
 
 ---
 
-## Acknowledgments
+## Acknowledgements
 
-This project builds upon foundational work in diffusion models, transformers, and multimodal learning:
-
-- Stability AI for open-source Stable Diffusion
-- OpenAI for CLIP and GPT models
-- HuggingFace for the Diffusers library and model hosting
-- The broader open-source AI research community
+This work builds on:
+[Rombach et al. 2022](https://arxiv.org/abs/2112.10752) (LDM) ·
+[Podell et al. 2023](https://arxiv.org/abs/2307.01952) (SDXL) ·
+[Tang et al. 2023](https://arxiv.org/abs/2305.04543) (DAAM) ·
+[Hertz et al. 2023](https://arxiv.org/abs/2208.01626) (Prompt-to-Prompt) ·
+[Radford et al. 2021](https://arxiv.org/abs/2103.00020) (CLIP) ·
+HuggingFace Diffusers · the COCO dataset team

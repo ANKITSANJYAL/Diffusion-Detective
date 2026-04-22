@@ -1,0 +1,53 @@
+# experiments/configs/smoke_test.yaml
+# ============================================================================
+# PREFLIGHT SMOKE TEST
+# ============================================================================
+# Runs 1 prompt through ALL 24 treatments (6 strengths × 4 windows) to verify
+# that the unified ablation pipeline, split baseline/intervention API, metric
+# calculation, JSONL logging, and image storage all work end-to-end before
+# committing to the full 5000-prompt run.
+#
+# Usage:
+#   torchrun --nproc_per_node=2 -m experiments.run_experiment --config-name=smoke_test
+# ============================================================================
+defaults:
+  - base
+
+data:
+  max_samples: 1   # Single prompt — tests all 24 treatments on it
+
+# ── Same sweep grid as ablation — validates every cell ──────────
+sweep:
+  strengths: [0.25, 0.5, 0.75, 1.0, 1.5, 2.0]
+  windows:
+    - [50, 35]
+    - [35, 20]
+    - [20,  5]
+    - [45,  5]
+  attribute_groups:
+    colour:     ["red", "blue", "golden"]
+    texture:    ["metallic", "glass", "stone"]
+    style:      ["cyberpunk", "baroque", "minimalist"]
+    atmosphere: ["frozen", "fiery", "misty"]
+  sweep_strength: true
+  sweep_window:   true
+  sweep_attribute: false   # 24 treatments; set true to test all 288
+
+intervention:
+  active: true
+  strength: 1.0
+  step_start: 40
+  step_end: 20
+
+wandb:
+  mode: "disabled"  # Don't log garbage to Weights and Biases
+
+evaluator:
+  use_vlm_judge: false   # Skip LLaVA for speed — just test generation + metrics
+
+storage:
+  save_images_locally: true       # Save PNGs so we can visually inspect
+  save_individual_jsons: false
+  save_reproduction_params: true
+
+experiment_name: "preflight-smoke"

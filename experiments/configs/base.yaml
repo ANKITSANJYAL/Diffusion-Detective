@@ -1,0 +1,62 @@
+# experiments/configs/base.yaml
+# Core variables and hyperparameter defaults for Diffusion Detective CVPR benchmarks
+
+# Hydra configuration — disable CWD change so torchrun DDP works safely
+# (multiple ranks would race to create the same output directory otherwise).
+hydra:
+  run:
+    dir: .
+  output_subdir: null   # Don't create .hydra/ subdirectory
+
+pipeline:
+  model_id: "stabilityai/stable-diffusion-xl-base-1.0"
+  device: "cuda"
+  torch_dtype: "float16"
+
+generation:
+  num_inference_steps: 50
+  guidance_scale: 7.5
+  seed: 42
+  auto_detect_concepts: true
+
+intervention:
+  active: true
+  strength: 1.0     # Default intervention strength
+  step_start: 40    # Optimal window start (empirically derived)
+  step_end: 20      # Optimal window end
+
+data:
+  dataset_name: "coco2017"
+  categories:
+    - "Simple"
+    - "Compositional"
+    - "Conflicting"
+  batch_size: 4     # Per-GPU batch size
+  num_workers: 4
+
+wandb:
+  project: "diffusion-detective-cvpr"
+  entity: null
+  mode: "online"    # can be 'offline' for debugging
+
+metrics:
+  calculate_delta_clip: true
+  calculate_lpips: true
+  calculate_attention_faithfulness: true   # ACS + Spatial Faithfulness + ADC + P-ADC + L-ADC
+  calculate_knockout: false                # AKS (Attention Knockout Score) — causal ablation
+                                           # Adds a 3rd denoising pass per treatment (expensive)
+                                           # Enable for knockout experiment configs only
+  calculate_fid: false # default off because FID needs thousands of samples
+  calculate_is: false
+
+evaluator:
+  use_vlm_judge: true
+  model: "gpt-4o-mini" # default to mini for speed, switch to gpt-4o for final
+  retry_attempts: 3
+
+storage:
+  save_images_locally: false      # Default to False to prevent I/O bottlenecks in full sweeps
+  save_individual_jsons: false    # Default to False, rely on the global JSONL/CSV instead
+  save_reproduction_params: true  # Always save the parameters needed to reproduce each image
+                                  # (seed, prompt, target, attribute, strength, window, model_id)
+                                  # This allows recreating any image on-demand without storing PNGs.

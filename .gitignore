@@ -1,0 +1,81 @@
+# =====================================================================
+# Diffusion Detective — .gitignore
+# =====================================================================
+
+# ----- Python -----
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+
+# ----- Jupyter -----
+.ipynb_checkpoints/
+*.ipynb
+
+# ----- Environment / secrets -----
+.env
+.env.local
+*.env
+
+# ----- Node / frontend -----
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# ----- Experiment outputs (large, reproducible) -----
+outputs/
+experiments/results/
+experiments/logs/
+experiments/validation_output/
+
+# ----- W&B runs -----
+wandb/
+
+# ----- LaTeX build artefacts (keep .tex, .bib, .pdf, .sty) -----
+analysis/*.aux
+analysis/*.bbl
+analysis/*.blg
+analysis/*.log
+analysis/*.out
+analysis/*.fls
+analysis/*.fdb_latexmk
+analysis/*.synctex.gz
+
+# ----- Stale / superseded style files -----
+analysis/neurips_2024.sty
+analysis/neurips_2026.tex
+
+# ----- Debug / scratch files in root -----
+debug_attention_data.py
+debug_black_images.py
+debug_attn_output.log
+test_embedding_injection.py
+
+# ----- Loose log files in root -----
+*.log
+
+# ----- Model cache -----
+*.ckpt
+*.safetensors
+*.bin
+*.pt
+*.pth
+
+# ----- OS -----
+.DS_Store
+Thumbs.db
+/experiments/results
+/experiments/logs
+/experiments/validation_output
+analysis/paper_qualitative/failure
+analysis/paper_qualitative/success
+analysis/paper_figures

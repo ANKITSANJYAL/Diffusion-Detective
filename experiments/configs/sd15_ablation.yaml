@@ -1,0 +1,56 @@
+# experiments/configs/sd15_ablation.yaml
+# SD1.5 cross-model validation run
+#
+# Same treatment grid as the SDXL ablation to enable direct comparison.
+# This is critical for CVPR: the paper must show findings generalise
+# beyond a single architecture.
+#
+# Usage:
+#   python -m experiments.run_experiment --config-name=sd15_ablation
+
+defaults:
+  - base
+
+experiment_name: "sd15-ablation"
+
+pipeline:
+  model_id: "stable-diffusion-v1-5/stable-diffusion-v1-5"
+  device: "cuda"
+  torch_dtype: "float16"
+
+data:
+  dataset_name: "coco2017"
+  max_samples: 500              # Subset matching SDXL prompt count
+  batch_size: 1
+
+generation:
+  num_inference_steps: 50
+  guidance_scale: 7.5
+  seed: 42
+  auto_detect_concepts: true
+
+sweep:
+  sweep_strength: true
+  strengths: [0.25, 0.5, 0.75, 1.0, 1.5, 2.0]
+
+  sweep_window: true
+  windows:
+    - [50, 35]   # Early
+    - [35, 20]   # Mid
+    - [20, 5]    # Late
+    - [45, 5]    # Full
+
+  sweep_attribute: false
+
+metrics:
+  calculate_delta_clip: true
+  calculate_lpips: true
+  calculate_attention_faithfulness: true
+  calculate_knockout: false
+
+storage:
+  save_images_locally: false
+  save_reproduction_params: true
+
+wandb:
+  mode: "offline"
