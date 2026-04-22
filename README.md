@@ -8,7 +8,7 @@ A Large-Scale Diagnostic of Cross-Attention in Text-to-Image Diffusion Models**
 
 ## Abstract
 
-Cross-attention maps in text-to-image diffusion models are routinely treated as explanations for how text tokens influence image generation.  We test this assumption directly.  Across **16,302 controlled embedding-space interventions** on 680 COCO prompts using Stable Diffusion XL (SDXL), we find that attention maps are poor spatial predictors of where interventions take effect (SF-IoU-HR ≈ 0.17), and that the standard Attention-Delta Correlation (ADC) metric is partially tautological by construction.  We introduce two decoupled metrics — **Predictive ADC (P-ADC)** and **Latent-Delta Correlation (L-ADC)** — that remove this circularity.
+Cross-attention maps in text-to-image diffusion models are routinely treated as explanations for how text tokens influence image generation.  We test this assumption directly.  Across **16,302 controlled embedding-space interventions** on 680 COCO prompts using Stable Diffusion XL (SDXL), we find that attention maps are poor spatial predictors of where interventions take effect (SF-IoU-HR ≈ 0.17), and that the standard Attention-Delta Correlation (ADC) metric is partially tautological by construction.  We introduce two decoupled metrics : **Predictive ADC (P-ADC)** and **Latent-Delta Correlation (L-ADC)** : that remove this circularity.
 
 The strongest finding is structural: *concrete-perceptual* attributes (color, material) concentrate target-concept attention roughly **3× more** than *abstract-stylistic* attributes (style, atmospheric effect), despite producing comparable image-level changes (LPIPS).  This asymmetry holds across all intervention strengths and temporal windows, pointing to a mechanistic difference in how SDXL's cross-attention processes these two attribute classes.
 
@@ -25,7 +25,7 @@ The strongest finding is structural: *concrete-perceptual* attributes (color, ma
 | Material ACS | **−0.349 ± 0.16** | Strongest attention concentration |
 | Style ACS | **−0.106 ± 0.18** | ~3× weaker than Color/Material |
 | Effect ACS | **−0.098 ± 0.19** | ~3× weaker than Color/Material |
-| LPIPS (Color vs Style) | **0.150 vs 0.138** | Comparable image change — asymmetry is not explained by output magnitude |
+| LPIPS (Color vs Style) | **0.150 vs 0.138** | Comparable image change : asymmetry is not explained by output magnitude |
 
 **SF-IoU-HR by temporal window:**  
 Early (50–35): 0.156 · Mid (35–20): 0.170 · Late (20–5): 0.177 · Full (45–5): 0.177
@@ -40,8 +40,8 @@ Compositional: 0.165 · Conflicting: 0.178 · Simple: 0.187
 ### Experimental Setup
 
 - **Model:** `stabilityai/stable-diffusion-xl-base-1.0` (SDXL), 50 DDIM steps, guidance 7.5, seed 42, float16, NVIDIA V100 16 GB
-- **Dataset:** 680 COCO 2017 captions across three prompt categories — *Simple* (50), *Compositional* (451), *Conflicting* (158)
-- **Attributes:** 20 attributes in four semantic clusters — Color (5), Material (5), Style (5), Effect (5)
+- **Dataset:** 680 COCO 2017 captions across three prompt categories : *Simple* (50), *Compositional* (451), *Conflicting* (158)
+- **Attributes:** 20 attributes in four semantic clusters : Color (5), Material (5), Style (5), Effect (5)
 - **Conditions:** 6 intervention strengths × 4 temporal windows = **24 conditions per prompt × attribute pair**
 - **Total interventions:** **16,302**
 
@@ -60,10 +60,10 @@ No fine-tuning. Two-pass generation (baseline + intervention) per condition.
 
 | Metric | Description |
 |---|---|
-| **ACS** | Attention Concentration Score — relative change in target-token attention mass |
-| **ADC** | Attention-Delta Correlation — *partially tautological* (both quantities from same forward pass) |
-| **P-ADC** *(ours)* | Predictive ADC — baseline-pass attention predicting intervention-induced change |
-| **L-ADC** *(ours)* | Latent-Delta Correlation — baseline attention vs. latent L2-divergence |
+| **ACS** | Attention Concentration Score : relative change in target-token attention mass |
+| **ADC** | Attention-Delta Correlation : *partially tautological* (both quantities from same forward pass) |
+| **P-ADC** *(ours)* | Predictive ADC : baseline-pass attention predicting intervention-induced change |
+| **L-ADC** *(ours)* | Latent-Delta Correlation : baseline attention vs. latent L2-divergence |
 | **SF-IoU / SF-IoU-HR** | DAAM-protocol IoU between attention heatmap and pixel-change mask (native / upsampled) |
 | **LPIPS** | Perceptual image distance between baseline and intervention outputs |
 
@@ -169,7 +169,7 @@ pdflatex mechinterp_workshop_2026
 # → mechinterp_workshop_2026.pdf
 ```
 
-Requires a standard TeX Live installation (natbib, geometry, times, booktabs, subcaption, placeins — all in TeX Live 2022+).
+Requires a standard TeX Live installation (natbib, geometry, times, booktabs, subcaption, placeins : all in TeX Live 2022+).
 
 ---
 
@@ -225,7 +225,7 @@ If you use this code or findings, please cite:
 
 ## License
 
-MIT License — see [`LICENSE`](LICENSE) for details.
+MIT License : see [`LICENSE`](LICENSE) for details.
 
 ---
 
