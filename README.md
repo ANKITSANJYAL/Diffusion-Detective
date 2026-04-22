@@ -3,9 +3,6 @@
 **When Does Attention Actually Do Anything?  
 A Large-Scale Diagnostic of Cross-Attention in Text-to-Image Diffusion Models**
 
-> Submitted to the **Mechanistic Interpretability Workshop @ ICML 2026**  
-> Anonymous submission — double-blind review  
-> Paper: [`analysis/mechinterp_workshop_2026.pdf`](analysis/mechinterp_workshop_2026.pdf)
 
 ---
 
